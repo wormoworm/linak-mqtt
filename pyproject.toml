@@ -1,0 +1,18 @@
+[tool.poetry]
+name = "linak-mqtt"
+version = "0.1.0"
+description = ""
+authors = ["Tom Homewood"]
+readme = "README.md"
+packages = [{include = "linak_mqtt"}]
+
+[tool.poetry.dependencies]
+python = "^3.8"
+usb = "^0.0.83.dev0"
+libusb1 = "^3.0.0"
+pyusb = "^1.2.1"
+
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
