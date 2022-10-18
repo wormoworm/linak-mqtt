@@ -5,10 +5,10 @@ import os
 import json
 import asyncio
 
-TOPIC_TELEMETRY = "devices/linak/tom_desk/telemetry"
-TOPIC_COMMANDS = "devices/linak/tom_desk/commands"
+TOPIC_FORMAT_TELEMETRY = "devices/linak/{}/telemetry"
+TOPIC_FORMAT_COMMANDS = "devices/linak/{}/commands"
 
-COMMAND_MOVE = "move"
+COMMAND_SET_HEIGHT = "set_height"
 COMMAND_REQUEST_HEIGHT = "request_height"
 
 class LinakMqttConfig:
@@ -54,11 +54,11 @@ class LinakMqtt:
         self.publish_height()
 
     def subscribe_to_mqtt_topics(self):
-        self.mqtt_client.subscribe(topic = TOPIC_COMMANDS)
+        self.mqtt_client.subscribe(topic = TOPIC_FORMAT_COMMANDS.format(self.config.client_id))
     
     def on_message_received(self, client, userdata, message):
         print(f"Message received on topic: {message.topic}")
-        if message.topic == TOPIC_COMMANDS:
+        if message.topic == TOPIC_FORMAT_COMMANDS.format(self.config.client_id):
             self.process_command(json.loads(message.payload))
     
     def publish_height(self):
@@ -68,7 +68,7 @@ class LinakMqtt:
             "height_raw": height_raw,
             "height_m": height_m
         }
-        self.mqtt_client.publish(topic = TOPIC_TELEMETRY, payload = json.dumps(payload), qos = 1)
+        self.mqtt_client.publish(topic = TOPIC_FORMAT_TELEMETRY.format(self.config.client_id), payload = json.dumps(payload), qos = 1)
     
     def process_command(self, command):
         print(command)
@@ -78,22 +78,22 @@ class LinakMqtt:
             return
         if command_type == COMMAND_REQUEST_HEIGHT:
             self.process_request_height_command(command)
-        elif command_type == COMMAND_MOVE:
-            self.process_move_command(command)
+        elif command_type == COMMAND_SET_HEIGHT:
+            self.process_set_height_command(command)
         else:
             print(f"Command type \"{command_type}\" is not supported, ignoring command")
     
     def process_request_height_command(self, command: dict):
         self.publish_height()
     
-    def process_move_command(self, command: dict):
+    def process_set_height_command(self, command: dict):
         height = command.get("height", None)
         if not height:
-            print("Height not provided, ignoring move command")
+            print("Height not provided, ignoring set_height command")
         self.controller.move(height)
         self.publish_height()
 
 
 """Entrypoint"""
-mqtt_config = LinakMqttConfig("10.0.1.2", 8884, "linak-mqtt", os.getenv("MQTT_USERNAME"), os.getenv("MQTT_PASSWORD"))
+mqtt_config = LinakMqttConfig("10.0.1.2", 8884, os.getenv("LINAK_MQTT_CLIENT_ID"), os.getenv("LINAK_MQTT_USERNAME"), os.getenv("LINAK_MQTT_PASSWORD"))
 linakMqtt = LinakMqtt(mqtt_config)
