@@ -7,6 +7,17 @@ optional = false
 python-versions = "*"
 
 [[package]]
+name = "paho-mqtt"
+version = "1.5.0"
+description = "MQTT version 3.1.1 client class"
+category = "main"
+optional = false
+python-versions = "*"
+
+[package.extras]
+proxy = ["PySocks"]
+
+[[package]]
 name = "pyusb"
 version = "1.2.1"
 description = "Python USB access module"
@@ -25,7 +36,7 @@ python-versions = "*"
 [metadata]
 lock-version = "1.1"
 python-versions = "^3.8"
-content-hash = "b6a9947897897a37cd1741f8ccb6f4febd5510fcf67cdff671c0e49782a190bb"
+content-hash = "053f7c1be204074752d26c635ede921cf9e7e529d21b5846c067d0eb6c4783c0"
 
 [metadata.files]
 libusb1 = [
@@ -33,6 +44,9 @@ libusb1 = [
     {file = "libusb1-3.0.0-py3-none-win32.whl", hash = "sha256:083f75e5d15cb5e2159e64c308c5317284eae926a820d6dce53a9505d18be3b2"},
     {file = "libusb1-3.0.0-py3-none-win_amd64.whl", hash = "sha256:6f6bb010632ada35c661d17a65e135077beef0fbb2434d5ffdb3a4a911fd9490"},
     {file = "libusb1-3.0.0.tar.gz", hash = "sha256:5792a9defee40f15d330a40d9b1800545c32e47ba7fc66b6f28f133c9fcc8538"},
+]
+paho-mqtt = [
+    {file = "paho-mqtt-1.5.0.tar.gz", hash = "sha256:e3d286198baaea195c8b3bc221941d25a3ab0e1507fc1779bdb7473806394be4"},
 ]
 pyusb = [
     {file = "pyusb-1.2.1-py3-none-any.whl", hash = "sha256:2b4c7cb86dbadf044dfb9d3a4ff69fd217013dbe78a792177a3feb172449ea36"},

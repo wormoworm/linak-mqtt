@@ -13,9 +13,12 @@
 # program. If not, see <https://www.gnu.org/licenses/>. 
 
 from ctypes import sizeof
+from time import sleep
 import sys
 import time
 import usb1
+
+DRIVER_DETACH_RETRY_INTERVAL_MS = 200
 
 REQ_INIT = 0x0303
 REQ_GET_STATUS = 0x0304
@@ -173,8 +176,17 @@ class LinakController(object):
 			raise Exception('Could not connect to usb device')
 
 		if self._handle.kernelDriverActive(0):
-			print("Detaching kernel driver")
-			self._handle.detachKernelDriver(0)
+			driver_detached = False
+			detach_attempts = 0
+			while driver_detached is False:
+				detach_attempts+= 1
+				print(f"Detaching kernel driver, attempt {detach_attempts}")
+				try:
+					self._handle.detachKernelDriver(0)
+					driver_detached = True
+				except usb1.USBError as e:
+					print(f"Failed to detach kernel driver, will wait for {DRIVER_DETACH_RETRY_INTERVAL_MS}ms and try again")
+					sleep(DRIVER_DETACH_RETRY_INTERVAL_MS / 1000)
 			
 		self._handle.claimInterface(0)
 		self._initDevice()
@@ -326,7 +338,7 @@ class LinakController(object):
 		buf = self._getStatusReport()
 		r = StatusReport.fromBuf(buf)
 
-		return r.ref1.pos, r.ref1.pos/98.0
+		return r.ref1.pos, round(r.ref1.pos/980, 3)
 
 if __name__ == '__main__':
 	import argparse
@@ -349,8 +361,8 @@ if __name__ == '__main__':
 			else:
 				print('Command failed')
 		elif args.command == 'height':
-			h, hcm = co.getHeight()
-			print('Current height is: {:d} / {:.2f} cm'.format(h, hcm))
+			h, hm = co.getHeight()
+			print('Current height is: {:d} / {:.3f} m'.format(h, hm))
 	except Exception as e:
 		co.close()
 		raise e
