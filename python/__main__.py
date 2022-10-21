@@ -2,6 +2,8 @@ from linak_desk_control import LinakController
 from paho.mqtt.client import Client
 from time_utils import get_current_time_ms
 import os
+import sys
+import signal
 import json
 import asyncio
 
@@ -9,7 +11,10 @@ TOPIC_FORMAT_TELEMETRY = "devices/linak/{}/telemetry"
 TOPIC_FORMAT_COMMANDS = "devices/linak/{}/commands"
 
 COMMAND_SET_HEIGHT = "set_height"
+COMMAND_STOP = "stop"
 COMMAND_REQUEST_HEIGHT = "request_height"
+
+MAIN_LOOP_INTERVAL_S = 5
 
 class LinakMqttConfig:
     """Contains config data used by the LinakMqtt controller class."""
@@ -29,6 +34,11 @@ class LinakMqtt:
 
         self.config = config
 
+        # Register a function to be invoked when we receive SIGTERM or SIGHUP.
+        # This allows us to act on these events, which are sent by systemd when stopping the service.
+        signal.signal(signal.SIGTERM, self._os_signal_handler)
+        signal.signal(signal.SIGHUP, self._os_signal_handler)
+
         # Initialise USB device
         self.controller = LinakController()
 
@@ -45,7 +55,30 @@ class LinakMqtt:
         self.mqtt_client.loop_start()
 
         self._loop = asyncio.get_event_loop()
+        self._loop.create_task(self.main())
         self._loop.run_forever()
+    
+    def stop(self):
+        """Stop application"""
+        print("Stopping...")
+        # Stop event loop
+        self._loop.stop()
+    
+    def _os_signal_handler(self, signum, frame):
+        """Handle OS signal"""
+
+        print("Received signal from OS ({0}), shutting down gracefully...".format(signum), force_display = True)
+        self.stop()
+        sys.exit()
+
+    async def main(self):
+        try:
+            while True:
+                await asyncio.sleep(MAIN_LOOP_INTERVAL_S)
+                self.publish_height()
+        except (KeyboardInterrupt, SystemExit):
+            # Keyboard interrupt (SIGINT) or exception triggered by sys.exit()
+            self.stop()
 
     def on_mqtt_connected(self, client, userdata, flags, rc):
         self.subscribe_to_mqtt_topics()
@@ -80,6 +113,8 @@ class LinakMqtt:
             self.process_request_height_command(command)
         elif command_type == COMMAND_SET_HEIGHT:
             self.process_set_height_command(command)
+        elif command_type == COMMAND_STOP:
+            self.process_stop_command(command)
         else:
             print(f"Command type \"{command_type}\" is not supported, ignoring command")
     
@@ -91,8 +126,10 @@ class LinakMqtt:
         if not height:
             print("Height not provided, ignoring set_height command")
         self.controller.move(height)
-        print("Controller move called")
         self.publish_height()
+    
+    def process_stop_command(self, command: dict):
+        self.controller.stop()
 
 
 """Entrypoint"""

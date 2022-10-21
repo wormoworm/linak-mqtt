@@ -14,5 +14,5 @@ sudo systemctl enable linak-mqtt.service
 
 TODO:
 
-Periodic reporting of height
+Stop command
 Report net desk height

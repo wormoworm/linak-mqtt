@@ -349,15 +349,23 @@ class LinakController(object):
 		return abs(r.ref1.pos - target) <= epsilon
 	
 	def move(self, target):
+		if self._cancel_move_if_in_progress():
+			# If a move was ongoing, wait a short time before attempting the next move. If we try to move immediately, the controller will ignore the request.
+			time.sleep(MIN_WAIT_INTERVAL_BETWEEN_MOVES_S)
+		self._cancel_event = threading.Event()
+		self._active_move_thread = threading.Thread(target=self._move_worker, kwargs={'target': target})
+		self._active_move_thread.start()
+	
+	def _cancel_move_if_in_progress(self) -> bool:
 		if self._cancel_event:
 			self._cancel_event.set()
 			self._active_move_thread.join()
-			# Wait a short time before attempting the next move. If we try to move immediately, the controller will ignore the request.
-			time.sleep(MIN_WAIT_INTERVAL_BETWEEN_MOVES_S)
-		self._cancel_event = threading.Event()
-		self._print_thread_id()
-		self._active_move_thread = threading.Thread(target=self._move_worker, kwargs={'target': target})
-		self._active_move_thread.start()
+			return True
+		return False
+	
+	def stop(self):
+		self._cancel_move_if_in_progress()
+		self._moveEnd()
 
 	def getHeight(self):
 		buf = self._getStatusReport()
