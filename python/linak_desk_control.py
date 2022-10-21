@@ -17,8 +17,10 @@ from time import sleep
 import sys
 import time
 import usb1
+import threading
 
 DRIVER_DETACH_RETRY_INTERVAL_MS = 200
+MIN_WAIT_INTERVAL_BETWEEN_MOVES_S = 0.5
 
 REQ_INIT = 0x0303
 REQ_GET_STATUS = 0x0304
@@ -163,6 +165,8 @@ class StatusReport(object):
 class LinakController(object):
 	_handle = None
 	_ctx = None
+	_cancel_event: threading.Event() = None
+	_active_move_thread: threading.Thread = None
 
 	def __init__(self, vendor_id=0x12d3, product_id=0x0002):
 		self._ctx =usb1.USBContext() 
@@ -184,11 +188,13 @@ class LinakController(object):
 				try:
 					self._handle.detachKernelDriver(0)
 					driver_detached = True
+					print("Detached kernel driver")
 				except usb1.USBError as e:
 					print(f"Failed to detach kernel driver, will wait for {DRIVER_DETACH_RETRY_INTERVAL_MS}ms and try again")
 					sleep(DRIVER_DETACH_RETRY_INTERVAL_MS / 1000)
 			
 		self._handle.claimInterface(0)
+		print("Successfully claimed USB interface")
 		self._initDevice()
 
 	def close(self):
@@ -302,7 +308,7 @@ class LinakController(object):
 
 		time.sleep(100000/1000000.0)
 
-	def move(self, target):
+	def _move_worker(self, target):
 		a = max_a = 3
 		epsilon = 13
 		oldH = 0
@@ -329,10 +335,29 @@ class LinakController(object):
 			)
 
 			if a == 0:
+				print(f"Max attempts reached, breaking out of loop")
 				break
+		
+			if self._cancel_event.is_set():
+				print(f"Cancel event set, breaking out of loop")
+				break
+
 			oldH = r.ref1.pos
+			
+		self._cancel_event = None
 
 		return abs(r.ref1.pos - target) <= epsilon
+	
+	def move(self, target):
+		if self._cancel_event:
+			self._cancel_event.set()
+			self._active_move_thread.join()
+			# Wait a short time before attempting the next move. If we try to move immediately, the controller will ignore the request.
+			time.sleep(MIN_WAIT_INTERVAL_BETWEEN_MOVES_S)
+		self._cancel_event = threading.Event()
+		self._print_thread_id()
+		self._active_move_thread = threading.Thread(target=self._move_worker, kwargs={'target': target})
+		self._active_move_thread.start()
 
 	def getHeight(self):
 		buf = self._getStatusReport()

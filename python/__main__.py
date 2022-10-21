@@ -91,6 +91,7 @@ class LinakMqtt:
         if not height:
             print("Height not provided, ignoring set_height command")
         self.controller.move(height)
+        print("Controller move called")
         self.publish_height()
 
 

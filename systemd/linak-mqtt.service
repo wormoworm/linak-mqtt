@@ -1,0 +1,17 @@
+[Unit]
+# Linak MQTT desk control service
+Description=linak-mqtt service
+After=dev-bus-usb-001-001.device
+
+[Service]
+ExecStart=python -u python/__main__.py
+WorkingDirectory=/home/hronn/linak-mqtt
+StandardOutput=inherit
+StandardError=inherit
+User=root
+Environment="LINAK_MQTT_CLIENT_ID=tom_desk"
+Environment="LINAK_MQTT_USERNAME=hronn"
+Environment="LINAK_MQTT_PASSWORD=5eQH8r7fpWm9yTqb"
+
+[Install]
+WantedBy=multi-user.target
