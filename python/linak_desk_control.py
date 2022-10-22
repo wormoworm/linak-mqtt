@@ -20,7 +20,8 @@ import usb1
 import threading
 
 DRIVER_DETACH_RETRY_INTERVAL_MS = 200
-MIN_WAIT_INTERVAL_BETWEEN_MOVES_S = 0.5
+MIN_WAIT_INTERVAL_BETWEEN_MOVES_S = 0.35
+POINTS_PER_METRE = 10000
 
 REQ_INIT = 0x0303
 REQ_GET_STATUS = 0x0304
@@ -308,7 +309,7 @@ class LinakController(object):
 
 		time.sleep(100000/1000000.0)
 
-	def _move_worker(self, target):
+	def _move_worker(self, target, tick_callback):
 		a = max_a = 3
 		epsilon = 13
 		oldH = 0
@@ -319,6 +320,8 @@ class LinakController(object):
 
 			buf = self._getStatusReport()
 			r = StatusReport.fromBuf(buf)
+			tick_callback(self._get_height_from_status_report(r))
+
 			distance = r.ref1cnt - r.ref1.pos
 			delta = oldH-r.ref1.pos
 			if abs(distance) <= epsilon or abs(delta) <= epsilon or oldH == r.ref1.pos:
@@ -348,12 +351,12 @@ class LinakController(object):
 
 		return abs(r.ref1.pos - target) <= epsilon
 	
-	def move(self, target):
+	def move(self, target, tick_callback):
 		if self._cancel_move_if_in_progress():
 			# If a move was ongoing, wait a short time before attempting the next move. If we try to move immediately, the controller will ignore the request.
 			time.sleep(MIN_WAIT_INTERVAL_BETWEEN_MOVES_S)
 		self._cancel_event = threading.Event()
-		self._active_move_thread = threading.Thread(target=self._move_worker, kwargs={'target': target})
+		self._active_move_thread = threading.Thread(target=self._move_worker, kwargs={'target': target, 'tick_callback': tick_callback})
 		self._active_move_thread.start()
 	
 	def _cancel_move_if_in_progress(self) -> bool:
@@ -367,11 +370,16 @@ class LinakController(object):
 		self._cancel_move_if_in_progress()
 		self._moveEnd()
 
-	def getHeight(self):
+	def _get_height_from_status_report(self, status_report):
+		return status_report.ref1.pos
+
+	def get_height_raw(self):
 		buf = self._getStatusReport()
 		r = StatusReport.fromBuf(buf)
+		return self._get_height_from_status_report(r)
 
-		return r.ref1.pos, round(r.ref1.pos/980, 3)
+	def calculate_height_metres(self, height_raw):
+		return round(height_raw / POINTS_PER_METRE, 3)
 
 if __name__ == '__main__':
 	import argparse

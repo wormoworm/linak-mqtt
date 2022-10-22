@@ -10,9 +10,3 @@ sudo udevadm control --reload-rules && sudo udevadm trigger
 Copy the [service file](systemd/linak-mqtt.service) into `/etc/systemd/system/` and enable it with:
 ```sh
 sudo systemctl enable linak-mqtt.service
-```
-
-TODO:
-
-Stop command
-Report net desk height
