@@ -1,5 +1,6 @@
 # A deployment script that pushes the linak-mqtt source code to a remote machine and then runs the application.
 # The stdout from the application is captured to help with debugging.
+set -x
 
 target=$1
 install_dependencies=$2

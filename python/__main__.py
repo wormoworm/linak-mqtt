@@ -1,5 +1,5 @@
 from smtplib import quotedata
-from linak_desk_control import LinakController
+from linak_desk_control import LinakController, POINTS_PER_METRE
 from paho.mqtt.client import Client
 from time_utils import get_current_time_ms
 import os
@@ -128,10 +128,25 @@ class LinakMqtt:
         self.publish_height()
     
     def process_set_height_command(self, command: dict):
-        height = command.get("height", None)
-        if not height:
+        # First, check if a human-friendly "net height in metres" value was provided in the command
+        height_metres_net = command.get("height_metres_net", None)
+        if height_metres_net:
+            raw_height = self._calculate_raw_height(height_metres_net)
+            if raw_height:
+                print(f"Converted provided net height ({height_metres_net}) to raw height of {raw_height}")
+                self._set_height_raw(raw_height)
+                return
+            else:
+                print("Desired net height in metres was provided, but could not be converted to raw height. Check that env[LINAK_MQTT_MINIMUM_HEIGHT] is set. Falling back to using raw height")
+        # Fall back to setting the raw height
+        if "height" in command:
+            height = command.get("height", 0)
+            self._set_height_raw(int(height))
+        else:
             print("Height not provided, ignoring set_height command")
-        self.controller.move(height, self._set_height_tick_callback)
+
+    def _set_height_raw(self, height_raw: int):
+        self.controller.move(height_raw, self._set_height_tick_callback)
         self.publish_height()
     
     def process_stop_command(self, command: dict):
@@ -145,6 +160,22 @@ class LinakMqtt:
         if minimum_height:
             return round(height_metres + float(minimum_height), 3)
         else:
+            return None
+    
+    def _calculate_raw_height(self, height_metres_net: float):
+        minimum_height = os.getenv("LINAK_MQTT_MINIMUM_HEIGHT")
+        if minimum_height:
+            if height_metres_net < float(minimum_height):
+                print(f"Cannot set net height of {height_metres_net}m as it is below the minimum height of {minimum_height}")
+                return None
+            else:
+                raw_height = int((height_metres_net - float(minimum_height)) * POINTS_PER_METRE)
+                # Raw height 0 is valid in our eyes (it means min height), but 0 is false-y in Python, so bump 0 to 1. This is only a difference of 0.1mm, which is irrelevant.
+                if raw_height == 0:
+                    raw_height = 1
+                return raw_height
+        else:
+            print("bleh")
             return None
 
 
