@@ -380,32 +380,3 @@ class LinakController(object):
 
 	def calculate_height_metres(self, height_raw):
 		return round(height_raw / POINTS_PER_METRE, 3)
-
-if __name__ == '__main__':
-	import argparse
-	parser = argparse.ArgumentParser(description='Get the control on your desk!')
-	parser.add_argument('command', choices=['move', 'height'], help='Command to execute.')
-	parser.add_argument('height', type=int, nargs='?', help='For command "move", give the destination height.')
-
-	args = parser.parse_args()
-	if args.command == 'move' and not args.height:
-		sys.stderr.write('Height missing in case of move!\n')
-		parser.print_help()
-		sys.exit(1)
-
-	co = LinakController()
-	try:
-		if args.command == 'move':
-			r = co.move(args.height)
-			if r:
-				print('Command executed successfuly')
-			else:
-				print('Command failed')
-		elif args.command == 'height':
-			h, hm = co.getHeight()
-			print('Current height is: {:d} / {:.3f} m'.format(h, hm))
-	except Exception as e:
-		co.close()
-		raise e
-	finally:
-		co.close()
